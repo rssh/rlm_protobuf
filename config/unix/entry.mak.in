@@ -1,0 +1,29 @@
+#
+# (C) Grad-Soft Ltd, 2011
+# http://www.gradsoft.com.ua
+#
+
+PROJECT_ROOT=@project_root@
+VERSION=@VERSION@
+
+#
+CC=@CC@
+EXTRA_INCLUDES=-I$(COLLECTOR_DIR)
+CPPFLAGS=@CPPFLAGS@ @DEFS@ -DNDEBUG -I. $(EXTRA_INCLUDES)
+CFLAGS=@CFLAGS@
+LIBS=@LIBS@
+LD=ld
+LDFLAGS=@LDFLAGS@
+LN_S=@LN_S@
+
+#
+INSTALL=@INSTALL@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_PROGRAM=@INSTALL_PROGRAM@
+
+prefix=@prefix@
+install_bin_dir=@prefix@/bin
+install_lib_dir=@prefix@/lib
+install_idl_dir=@prefix@/idl
+install_include_dir=@prefix@/include
+

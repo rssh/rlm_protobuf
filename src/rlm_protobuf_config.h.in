@@ -1,0 +1,5 @@
+#ifndef __rlm_protobuf_config_h_in
+#define __rlm_protobuf_config_h_in
+
+
+#endif

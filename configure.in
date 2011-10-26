@@ -1,0 +1,40 @@
+dnl
+dnl (C) GradSoft 2011, Kiev, Ukraine
+dnl http://www.gradsoft.kiev.ua
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_INIT(src/rlm_protobuf_postconfig.h)
+AC_CONFIG_AUX_DIR(config)
+VERSION=1.0.0
+AC_SUBST(VERSION)
+PACKAGE=rlm_protobuf
+AC_SUBST(PACKAGE)
+
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_PROG_INSTALL
+AC_PROG_LN_S
+
+AC_SET_MAKE
+
+AC_CHECK_CURL(7.18.2)
+CFLAGS="$CURL_CFLAGS $CFLAGS"
+LIBS="$CURL_LIBS $LIBS"
+RSSH_CHECK_FREERADIUS_SRC
+RSSH_CHECK_PROTOBUF
+
+project_root=`pwd`
+AC_SUBST(project_root,$project_root)
+
+system_name=`uname`
+AC_SUBST(system_name,$system_name)
+
+AC_CONFIG_HEADER(src/rlm_json_config.h)
+
+AC_OUTPUT(Makefile \
+          src/Makefile \
+	  config/unix/entry.mak \
+          )
+
+

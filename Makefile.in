@@ -1,0 +1,15 @@
+
+PROJECT_ROOT=@project_root@
+
+default: build
+
+
+build:
+	(cd src; $(MAKE) build)
+
+install:
+	(cd src; $(MAKE) install)
+
+
+clean:
+	(cd src; $(MAKE) clean);
