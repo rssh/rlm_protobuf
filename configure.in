@@ -30,7 +30,7 @@ AC_SUBST(project_root,$project_root)
 system_name=`uname`
 AC_SUBST(system_name,$system_name)
 
-AC_CONFIG_HEADER(src/rlm_json_config.h)
+AC_CONFIG_HEADER(src/rlm_protobuf_config.h)
 
 AC_OUTPUT(Makefile \
           src/Makefile \

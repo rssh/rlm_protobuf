@@ -30,7 +30,7 @@ then
 fi
 
 LIBS="$LIBS -L$JSON_PREFIX -lprotobuf-c"
-AC_CHECK_LIB(protobuf-c, amessage__get_packed_size, found=yes, found=no)
+AC_CHECK_LIB(protobuf-c, protobuf_c_message_get_packed_size, found=yes, found=no)
 if test "x$found" = "xno" 
 then
  AC_MSG_ERROR("protobuf-c library not found");
