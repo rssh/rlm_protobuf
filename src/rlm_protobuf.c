@@ -14,6 +14,8 @@
 
 #include <curl/curl.h>
 
+#include "vsa.pb-c.h"
+
 #define AUTHORIZE  1
 #define AUTHENTICATE 2
 #define PREACCOUNT  3
@@ -115,7 +117,7 @@ static int rlm_protobuf_instantiate(CONF_SECTION* conf, void ** instance)
 
  *instance=data;
 
- pthread_once(&rlm_protobuf_once, rlm_protobuf_make_key);
+ pthread_once(&curl_once, rlm_curl_make_key);
  
  return 0;
 }
@@ -128,7 +130,7 @@ static int rlm_protobuf_detach(void* instance)
 }
 
 
-static void fill_protobuf_vp(Org__Freeradius__ValuePar* cvp, 
+static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp, 
                              VALUE_PAIR* pair,
                              ProtobufCAllocator* allocator)
 {
