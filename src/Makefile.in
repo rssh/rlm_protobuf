@@ -12,9 +12,13 @@ vsa.pb-c.c: vsa.proto
 rlm_protobuf.o: rlm_protobuf.c vsa.pb-c.c
 	cc -g -fPIC -DPIC -c $(CPPFLAGS) $(CFLAGS) rlm_protobuf.c
 
+vsa.pb-c.o: vsa.pb-c.c
+	cc -g -fPIC -DPIC -c $(CPPFLAGS) $(CFLAGS) vsa.pb-c.c
+
+
 rlm_protobuf-$(VERSION).so: rlm_protobuf.o
 	cc -g -shared -Wl,-soname,rlm_protobuf-$(VERSION).so \
-                       -o rlm_protobuf-$(VERSION).so rlm_protobuf.o $(LIBS)
+                       -o rlm_protobuf-$(VERSION).so rlm_protobuf.o vsa.pb-c.o $(LIBS)
 
 install: build
 	-rm $(prefix)/lib/rlm_protobuf-$(VERSION).so
@@ -23,6 +27,6 @@ install: build
 	$(LN_S) $(prefix)/lib/rlm_protobuf-$(VERSION).so $(prefix)/lib/rlm_protobuf.so
 
 clean:
-	rm rlm_protobuf*.o rlm_protobuf*.so
+	rm rlm_protobuf*.o vsa.pb-c.o rlm_protobuf*.so
 
 
