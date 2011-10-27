@@ -1,5 +1,5 @@
 /**
- * RLM_JSON
+ * RLM_PROTOBUF
  * (C) GradSoft Ltd, Kiev. Ukraine
  **/
  
@@ -134,91 +134,95 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                              VALUE_PAIR* pair,
                              ProtobufCAllocator* allocator)
 {
-  cvp->attribute = pair->attr;
+  cvp->attribute = pair->attribute;
   if (pair->vendor != 0) {
       cvp->has_vendor = 1;
-      cvs->vendor = pair->vendor;
+      cvp->vendor = pair->vendor;
   }
   switch(pair->type) {
         case PW_TYPE_STRING:
-               cvs->string_value = allocator->alloc(allocator->data,pair->length+1);
-               strncpy(cvs->string_value,pair->vp_string,pair->length+1);
+               cvp->string_value = allocator->alloc(allocator->allocator_data,pair->length+1);
+               strncpy(cvp->string_value,pair->vp_strvalue,pair->length+1);
                break;
          case PW_TYPE_INTEGER:
-               cvs->has_int32_value = 1;
-               cvs->int32_value = pair->vp_integer;
+               cvp->has_int32_value = 1;
+               cvp->int32_value = pair->vp_integer;
                break;
          case PW_TYPE_IPADDR:
-               cvs->has_bytes_value = 1;
-               cvs->bytes.len = 4;
-               cvs->bytes.data = allocator->alloc(allocator->data,4);
-               *cvs->bytes.data = htonl(pair->vp_ipaddr);
+               cvp->has_bytes_value = 1;
+               cvp->bytes_value.len = 4;
+               cvp->bytes_value.data = allocator->alloc(allocator->allocator_data,4);
+               *cvp->bytes_value.data = htonl(pair->vp_ipaddr);
                break;
-         case PW_TYPE_DATE
-               cvs->has_int32_value = 1;
-               cvs->int32_value = pair->vp_time;
+         case PW_TYPE_DATE:
+               cvp->has_int32_value = 1;
+               cvp->int32_value = pair->vp_date;
                break;
          case PW_TYPE_ABINARY:
          case PW_TYPE_OCTETS:
-               cvs->has_bytes_value = 1;
-               cvs->bytes.len = pair->length;
-               cvs->bytes.data = allocator->alloc(allocator->data,pair->length);
-               memcpy(cvs->bytes.data, pair->vp_strvalue, pair->length);
+               cvp->has_bytes_value = 1;
+               cvp->bytes_value.len = pair->length;
+               cvp->bytes_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               memcpy(cvp->bytes_value.data, pair->vp_strvalue, pair->length);
                break;
          case PW_TYPE_IFID:
-               cvs->has_bytes_value = 1;
-               cvs->bytes.len = sizeof(pair->vp_ifid);
-               cvs->bytes.data = allocator->alloc(allocator->data,cvs->bytes.len);
-               memcpy(cvs->bytes.data, &(pair->vp_ifid), cvs->bytes.len);
+               cvp->has_bytes_value = 1;
+               cvp->bytes_value.len = sizeof(pair->vp_ifid);
+               cvp->bytes_value.data = allocator->alloc(allocator->allocator_data,sizeof(pair->vp_ifid));
+               memcpy(cvp->bytes_value.data, &(pair->vp_ifid), sizeof(pair->vp_ifid));
                break;
          case PW_TYPE_IPV6ADDR:
-               cvs->has_bytes_value = 1;
-               cvs->bytes.len = 16;
-               cvs->bytes.data = allocator->alloc(allocator->data,16);
-               memcpy(cvs->bytes.data, pair->vp_ip6addr, 16);
+               //TODO: represent in network order ?
+               cvp->has_bytes_value = 1;
+               cvp->bytes_value.len = 16;
+               cvp->bytes_value.data = allocator->alloc(allocator->allocator_data,16);
+               memcpy(cvp->bytes_value.data, &(pair->vp_ipv6addr), 16);
                break;
          case PW_TYPE_IPV6PREFIX:
-               cvs->has_bytes_value = 1;
-               cvs->bytes.len = sizeof(pair->vp_ipv6prefix);
-               cvs->bytes.data = allocator->alloc(allocator->data,cvs->bytes.len);
-               memcpy(cvs->bytes.data, &(pair->vp_ipv6prefix), sizeof(pair->vp_ipv6prefix));
+               cvp->has_bytes_value = 1;
+               cvp->bytes_value.len = sizeof(pair->vp_ipv6prefix);
+               cvp->bytes_value.data = allocator->alloc(allocator->allocator_data,cvp->bytes_value.len);
+               memcpy(cvp->bytes_value.data, &(pair->vp_ipv6prefix), sizeof(pair->vp_ipv6prefix));
                break;
          case PW_TYPE_BYTE:
          case PW_TYPE_SHORT:
-               cvs->has_int32_value = 1;
-               cvs->int32_value = pair->vp_integer;
+               cvp->has_int32_value = 1;
+               cvp->int32_value = pair->vp_integer;
                break;
          case PW_TYPE_ETHERNET:
-               cvs->has_bytes_value = 1;
-               cvs->bytes.len = sizeof(pair->vp_ether);
-               cvs->bytes.data = allocator->alloc(allocator->data,cvs->bytes.len);
-               memcpy(cvs->bytes.data, &(pair->vp_ether), cvs->bytes.len);
+               cvp->has_bytes_value = 1;
+               cvp->bytes_value.len = sizeof(pair->vp_ether);
+               cvp->bytes_value.data = allocator->alloc(allocator->allocator_data,sizeof(pair->vp_ether));
+               memcpy(cvp->bytes_value.data, &(pair->vp_ether), sizeof(pair->vp_ether));
                break;
          case PW_TYPE_SIGNED:
-               cvs->has_sint32_value = 1;
-               cvs->sint32_value = pair->vp_signed;
+               cvp->has_sint32_value = 1;
+               cvp->sint32_value = pair->vp_signed;
                break;
          case PW_TYPE_INTEGER64:
-               cvs->has_int64_value = 1;
-               cvs->int64_value = pair->vp_integer64;
+               cvp->has_int64_value = 1;
+               cvp->int64_value = pair->vp_integer64;
                break;
          default:
-               radlog("unimplemented radius VSA type %d, skip",pair->type);
+               radlog(L_ERR,"unimplemented radius VSA type %d, skip",pair->type);
                break;
   }
 }
                              
 
-static struct Org__Freeradius__RequestData* 
+static Org__Freeradius__RequestData* 
                         code_protobuf_request( int method, 
                                       REQUEST* request,
                                       ProtobufCAllocator* allocator)
 {
- struct Org__Freeradius__RequestData* request_data = 
-                                         ORG__FREERADIUS__REQUEST_DATA_INIT;
+ Org__Freeradius__RequestData* request_data = 
+                   allocator->alloc(allocator->allocator_data,
+                                   sizeof(Org__Freeradius__RequestData));
+ Org__Freeradius__RequestData tmp = ORG__FREERADIUS__REQUEST_DATA__INIT ;
+ *request_data = tmp;
  RADIUS_PACKET* packet = request->packet;
  VALUE_PAIR* pair;
- request_data.state = method;
+ request_data->state = method;
  if (packet!=NULL) {
    int n_pairs = 0;
    int n_pair = 0;
@@ -226,21 +230,21 @@ static struct Org__Freeradius__RequestData*
        ++n_pairs;
    }
    if (n_pairs > 0) {
-      request_data->vps_n = n_pairs;
-      request_data->vps = allocator->alloc(allocator->data,sizeof(Org__FreeRadius__ValuePair*)*n_pairs);
+      request_data->n_vps = n_pairs;
+      request_data->vps = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair*)*n_pairs);
    }
    int i=0;
    for(pair = packet->vps; pair != NULL; pair = pair->next) {
-      Org__FreeRadus__ValuePair* cvp = allocator->alloc(sizeof(Org__FreeRadius__ValuePair),1);
+      Org__Freeradius__ValuePair* cvp = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair));
       fill_protobuf_vp(request_data->vps[i],pair,allocator);
    }
  }
- return request->data;
+ return request_data;
 }
 
 
-static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
-                                    *boolean errflg)
+static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
+                                    int* errflg)
 {
   DICT_ATTR* attr = dict_attrbyvalue(cvp->attribute,
                                      (cvp->has_vendor ? cvp->vendor : 0));
@@ -255,17 +259,17 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
   *errflg=0;
   switch (attr->type) {
      case PW_TYPE_STRING:
-          if (cvp->has_string_value) {
+          if (cvp->string_value!=NULL) {
             int maxLen = sizeof(vp->vp_strvalue);
             int sLen = strlen(cvp->string_value);
             if (sLen >= maxLen) {
                radlog(L_ERR,"too long string for attribute %s, truncate", attr->name);
-               strncpy(vp->vp_strvalue,sz,maxLen);
+               strncpy(vp->vp_strvalue,cvp->string_value,maxLen);
                vp->vp_strvalue[maxLen-1]='\0';
                vp->length=maxLen;
                *errflg=2;
             } else {
-               strncpy(vp->vp_strvalue,sz,maxLen);
+               strncpy(vp->vp_strvalue,cvp->string_value,maxLen);
                vp->length=sLen;
             }
           } else {
@@ -277,19 +281,19 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
      case PW_TYPE_SHORT:
      case PW_TYPE_BYTE:
           if (cvp->has_int32_value) {
-              vp->vp_integer=x;
-              vp->vp_length=sizeof(vp->vp_integer);
+              vp->vp_integer=cvp->int32_value;
+              vp->length=sizeof(vp->vp_integer);
           } else {
              radlog(L_ERR,"attribute %s must be integer, have %d", attr->name, attr->type);
              *errflg=1;
           }
           break;
      case PW_TYPE_IPADDR:
-          // be patient, at first checj bytes, than string and int.
+          // be patient, at first check bytes, than string and int.
           if (cvp->has_bytes_value) {
-            if (cvp->bytes.len ==4 ) {
+            if (cvp->bytes_value.len ==4 ) {
               int32_t tmp;
-              memcpy(&tmp,cvp->bytes.data,4);
+              memcpy(&tmp,cvp->bytes_value.data,4);
               vp->vp_ipaddr = ntohl(tmp);
             } else {
               radlog(L_ERR,"invalid length of ip4 address in %s", attr->name);
@@ -297,7 +301,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
             }
           } else if (cvp->has_int32_value) {
             vp->vp_ipaddr = ntohl(cvp->int32_value);
-          } else if (cvp->has_string_value) {
+          } else if (cvp->string_value!=NULL) {
             int rc = inet_pton(AF_INET, cvp->string_value, &(vp->vp_ipaddr));
             if (rc < 0) {
               char message[255];
@@ -306,7 +310,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
                             message);
               *errflg=1;
             } else if (rc==0) {
-              radlog(L_ERR,"invalid ip for %s (%s)", attr->name,attr->string_value);
+              radlog(L_ERR,"invalid ip for %s (%s)", attr->name,cvp->string_value);
               *errflg=1;
             }
           } else {
@@ -333,11 +337,11 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
           break;
      case PW_TYPE_IFID:
           if (cvp->has_bytes_value) {
-            if(cvp->bytes_value.len != sizeof(pair->vp_ifid)) {
+            if(cvp->bytes_value.len != sizeof(vp->vp_ifid)) {
                radlog(L_ERR,"incorrect ifid length for %s", attr->name);
                *errflg=1;
             } else {
-               vp->vp_length = sizeof(vp->vp_ifid);
+               vp->length = sizeof(vp->vp_ifid);
                memcpy(&(vp->vp_ifid),cvp->bytes_value.data,sizeof(vp->vp_ifid));
             }
           } else {
@@ -348,14 +352,14 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
      case PW_TYPE_IPV6ADDR:
           if (cvp->has_bytes_value) {
             if (cvp->bytes_value.len == 16 ) {
-               memcpy(vp->vp_ip6addr,cvp->bytes_value.data, 16);
-               vp->vp_length=16l
+               memcpy(&(vp->vp_ipv6addr),cvp->bytes_value.data, 16);
+               vp->length=16;
             } else {
               radlog(L_ERR,"invalid length of ip6 address in %s", attr->name);
               *errflg=1;
             }
-          } else if (cvp->has_string_value) {
-            int rc = inet_pton(AF_INET6, cvp->string_value, &(vp->vp_ip6addr));
+          } else if (cvp->string_value!=NULL) {
+            int rc = inet_pton(AF_INET6, cvp->string_value, &(vp->vp_ipv6addr));
             if (rc < 0) {
               char message[255];
               strerror_r(errno,message,255);
@@ -363,7 +367,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
                             message);
               *errflg=1;
             } else if (rc==0) {
-              radlog(L_ERR,"invalid ip for %s (%s)", attr->name,attr->string_value);
+              radlog(L_ERR,"invalid ip for %s (%s)", attr->name, cvp->string_value);
               *errflg=1;
             } 
           } else {
@@ -373,9 +377,9 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
           break;
      case PW_TYPE_ETHERNET:
           if (cvp->has_bytes_value) {
-            if (cvs->bytes.len == sizeof(vp->vp_ether)) {
+            if (cvp->bytes_value.len == sizeof(vp->vp_ether)) {
               memcpy(vp->vp_ether,cvp->bytes_value.data, sizeof(vp->vp_ether));
-              vp->vp_length=sizeof(vp->vp_ether);
+              vp->length=sizeof(vp->vp_ether);
             } else {
               radlog(L_ERR,"invalid length of ether address in %s", attr->name);
               *errflg=1;
@@ -388,7 +392,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
      case PW_TYPE_SIGNED:
           if (cvp->has_sint32_value) {
             vp->vp_signed = cvp->sint32_value;
-            vp->vp_length=sizeof(vp->vp_signed);
+            vp->length=sizeof(vp->vp_signed);
           } else {
             radlog(L_ERR,"reply: invalid type for signed attr in %s", attr->name);
             *errflg=1;
@@ -397,7 +401,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
      case PW_TYPE_INTEGER64:
           if (cvp->has_int64_value) {
             vp->vp_integer64 = cvp->int64_value;
-            vp->vp_length=sizeof(vp->vp_integer64);
+            vp->length=sizeof(vp->vp_integer64);
           } else {
             radlog(L_ERR,"reply: invalid type for integer64 attr in %s", attr->name);
             *errflg=1;
@@ -410,7 +414,8 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePar* cvp,
   return vp;
 }
 
-static int adopt_protobuf_reply(Org__Freeradius__RequestDataReply* rdr, 
+static int adopt_protobuf_reply(int method,
+                                Org__Freeradius__RequestDataReply* rdr, 
                                 REQUEST* request
                                )
 {
@@ -418,21 +423,21 @@ static int adopt_protobuf_reply(Org__Freeradius__RequestDataReply* rdr,
                   (rdr->allow ? RLM_MODULE_OK : RLM_MODULE_REJECT) 
                   : RLM_MODULE_OK ;
   int i=0;
-  if  (rdr->has_error_message) {
+  if  (rdr->error_message!=NULL) {
      radlog(L_ERR,"error from protoserver: %s",rdr->error_message);
      return RLM_MODULE_INVALID;
   }
   
-  for(i=0; i < rdr->actions_n; ++i) {
+  for(i=0; i < rdr->n_actions; ++i) {
      int errflg=0;
-     Org__Freeradius__ValuePair* action = rds->actions[i]; 
+     Org__Freeradius__ValuePairAction* action = rdr->actions[i]; 
      Org__Freeradius__ValuePair* cvp = action->vp; 
-     if (action->op == ORG__FREERADIUS__VALUEPAIROP__REMOVE) {
+     if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REMOVE) {
          pairdelete(&(request->reply->vps),cvp->attribute,
                                            cvp->has_vendor ? cvp->vendor : 0 );
      } else {
        VALUE_PAIR* vp = create_radius_vp(cvp,&errflg);
-       if (vp!=NULL)
+       if (vp!=NULL) {
          if (errflg==0 || errflg==2) {
            /* some attributes must be inserted to request->config-items, 
             * not reply
@@ -442,13 +447,13 @@ static int adopt_protobuf_reply(Org__Freeradius__RequestDataReply* rdr,
                  ||vp->attribute==PW_CLEARTEXT_PASSWORD
                 )
               ) {
-             if (action->op == ORG__FREERADIUA__VALUEPAIROP__REPLACE) {
+             if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
                 pairreplace(&(request->config_items), vp);
              } else {
                 pairadd(&(request->config_items), vp);
              }
            } else {
-             if (action->op == ORG__FREERADIUA__VALUEPAIROP__REPLACE) {
+             if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
                 pairreplace(&(request->reply->vps),vp);
              } else {
                 pairadd(&(request->reply->vps),vp);
@@ -480,12 +485,12 @@ static size_t rlm_protobuf_read_function( void *ptr,
                                           size_t nmemb, 
                                           void *userdata)
 {
- BufferWithAllocator* pba = (BufferWithAllocator)userdata;
+ BufferWithAllocator* pba = (BufferWithAllocator*)userdata;
  size_t bytesRequired = size*nmemb;
  size_t bytesLeft = (size_t)(pba->buffer.len - pba->idx);
  size_t bytesToTransfer = (bytesLeft > bytesRequired ? bytesRequired 
                                                      : bytesLeft);
- memcpy(ptr,data+idx,bytesToTransfer);
+ memcpy(ptr,pba->buffer.data+pba->idx,bytesToTransfer);
  pba->idx += bytesToTransfer;
  return bytesToTransfer;
 }
@@ -495,9 +500,9 @@ size_t rlm_protobuf_write_function( char *ptr,
                                     size_t nmemb, 
                                     void *userdata)
 {
- BufferWithAllocator* pba = (BufferWithAllocator)userdata;
+ BufferWithAllocator* pba = (BufferWithAllocator*)userdata;
  size_t nBytes = size*nmemb;
- (pba->buffer.append)(pba->buffer,nBytes,ptr);
+ (pba->buffer.base.append)(&pba->buffer.base,nBytes,ptr);
  return nBytes;
 }
 
@@ -506,21 +511,32 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
 {
  CURL* handle = get_threadspecific_curl_handle(instance);
  CURLcode rc;
- BufferWithAllocator rba = {
+ int retval;
+ struct BufferWithAllocator rba = {
+    /*PROTOBUF_C_BUFFER_SIMPLE_INIT({}),
+     { 
+     {*/ protobuf_c_buffer_simple_append /*}*/, 
+      0, 0, NULL , 0 
+    /*}*/,
     0,
-    PROTOBUF_C_BUFFER_SIMPLE_INIT({}),
     &protobuf_c_default_allocator
  };
  struct BufferWithAllocator wba = {
+    /*PROTOBUF_C_BUFFER_SIMPLE_INIT({}),
+     {
+       {*/ protobuf_c_buffer_simple_append /*}*/, 
+       0, 0, NULL , 0 
+    /*}*/,
     0,
-    PROTOBUF_C_BUFFER_SIMPLE_INIT({}),
     &protobuf_c_default_allocator
  };
  char errbuff[CURL_ERROR_SIZE];
- Org__Freeradius__RequestData* proto_request = code_protobuf_request(method,
-                                                         request, allocator);
- org__freeradius__request_data__pack_to_buffer(&proto_request,
-                                               rba.buffer);
+ Org__Freeradius__RequestData* proto_request = 
+         code_protobuf_request(method,request, &protobuf_c_default_allocator);
+                                                         
+ org__freeradius__request_data__pack_to_buffer(proto_request, 
+                                              & rba.buffer.base);
+
  curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
  curl_easy_setopt(handle, CURLOPT_INFILESIZE, rba.buffer.len);
  curl_easy_setopt(handle, CURLOPT_READFUNCTION, rlm_protobuf_read_function);
@@ -533,16 +549,16 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
  if (rc!=0) {
    radlog(L_ERR,"%s",errbuff);
    curl_easy_cleanup(handle);
-   pthread_setspecific(rlm_protobuf_key,NULL);
+   pthread_setspecific(curl_key,NULL);
    retval = RLM_MODULE_INVALID;
  }else {
    retval=RLM_MODULE_NOOP;
  }
  if (instance->verbose) {
-   radlog(L_DBG,"received:\n%s",wba.buffer.length);
+   radlog(L_DBG,"received:\n%s",wba.buffer.len);
  }
- org__freeradius__request_data__free_unpacked(&proto_request,rda.allocator);
- rda.allocator->free(rda.buffer->data);
+ org__freeradius__request_data__free_unpacked(proto_request,rba.allocator);
+ rba.allocator->free(rba.allocator->allocator_data,rba.buffer.data);
  if (rc==0) {
     // i. e. whe have no errors in curl
     //
@@ -551,13 +567,13 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
                                                    wba.buffer.len,
                                                    wba.buffer.data);
 
-    retval = adopt_protobuf_reply(proto_reply, request); 
+    retval = adopt_protobuf_reply(method, proto_reply, request); 
     org__freeradius__request_data_reply_free_unpacked(
-                                                &proto_reply,wba.allocator);
-    wba.allocator->free(wda.buffer.data);
+                                                proto_reply,wba.allocator);
+    wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
  } else {
     if (wba.buffer.data!=NULL) {
-       wba.allocator->free(wda.buffer.data);
+       wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
     }
  }
  return retval;
