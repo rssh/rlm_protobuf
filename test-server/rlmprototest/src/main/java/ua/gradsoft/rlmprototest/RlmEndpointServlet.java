@@ -37,14 +37,16 @@ public class RlmEndpointServlet extends HttpServlet
               replyBuilder.setAllow(false);
           }
        }
-       replyBuilder.addActions(
+       if (requestData.getState()==Vsa.ProcessingState.POSTAUTH) {
+          replyBuilder.addActions(
                Vsa.ValuePairAction.newBuilder().setOp(Vsa.ValuePairOp.ADD)
                                                .setVp(Vsa.ValuePair.newBuilder()
                                                        .setAttribute(RadiusConstants.PW_FRAMED_IP_ADDRESS)
                                                        .setInt32Value(10)
                                                        .build()
                                                ).build()
-       );
+          );
+       }
        Vsa.RequestDataReply reply = replyBuilder.build();
        reply.writeTo(response.getOutputStream());
        response.getOutputStream().flush();
