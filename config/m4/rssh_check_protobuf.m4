@@ -29,7 +29,7 @@ then
  AC_MSG_ERROR("protobuf-c headers not found");
 fi
 
-LIBS="$LIBS -L$JSON_PREFIX -lprotobuf-c"
+LIBS="$LIBS -lprotobuf-c"
 AC_CHECK_LIB(protobuf-c, protobuf_c_message_get_packed_size, found=yes, found=no)
 if test "x$found" = "xno" 
 then

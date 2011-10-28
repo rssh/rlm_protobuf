@@ -1,0 +1,17 @@
+<!DOCTYPE web-app PUBLIC
+ "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+ "http://java.sun.com/dtd/web-app_2_3.dtd" >
+
+<web-app>
+  <display-name>Test Web Application for rlm_protobuf</display-name>
+
+  <servlet>
+    <servlet-name>TestRlmProtoServlet</servlet-name>
+    <servlet-class>ua.gradsoft.rlmprototest.RlmEndpointServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>TestRlmProtoServlet</servlet-name>
+    <url-pattern>/rlm/*</url-pattern>
+  </servlet-mapping>
+
+</web-app>

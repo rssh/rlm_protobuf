@@ -39,7 +39,7 @@ typedef struct rlm_protobuf_t {
 } rlm_protobuf_t;
 
 static const CONF_PARSER module_config[] = {
-  { "uri" , PW_TYPE_STRING_PTR, offsetof(rlm_protobuf_t,uri), NULL, NULL },
+  { "url" , PW_TYPE_STRING_PTR, offsetof(rlm_protobuf_t,uri), NULL, NULL },
   { "method" , PW_TYPE_STRING_PTR, offsetof(rlm_protobuf_t,method), NULL, NULL },
   { "verbose", PW_TYPE_BOOLEAN, offsetof(rlm_protobuf_t,verbose), NULL, "no" },
   { "authenticate", PW_TYPE_BOOLEAN, offsetof(rlm_protobuf_t,authenticate), NULL, "yes" },
@@ -215,17 +215,17 @@ static Org__Freeradius__RequestData*
                                       REQUEST* request,
                                       ProtobufCAllocator* allocator)
 {
+ RADIUS_PACKET* packet = request->packet;
+ VALUE_PAIR* pair;
  Org__Freeradius__RequestData* request_data = 
                    allocator->alloc(allocator->allocator_data,
                                    sizeof(Org__Freeradius__RequestData));
  Org__Freeradius__RequestData tmp = ORG__FREERADIUS__REQUEST_DATA__INIT ;
  *request_data = tmp;
- RADIUS_PACKET* packet = request->packet;
- VALUE_PAIR* pair;
  request_data->state = method;
+ request_data->n_vps = 0;
  if (packet!=NULL) {
    int n_pairs = 0;
-   int n_pair = 0;
    for(pair = packet->vps; pair != NULL; pair = pair->next) {
        ++n_pairs;
    }
@@ -236,7 +236,10 @@ static Org__Freeradius__RequestData*
    int i=0;
    for(pair = packet->vps; pair != NULL; pair = pair->next) {
       Org__Freeradius__ValuePair* cvp = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair));
-      fill_protobuf_vp(request_data->vps[i],pair,allocator);
+      Org__Freeradius__ValuePair tmp = ORG__FREERADIUS__VALUE_PAIR__INIT;
+      *cvp = tmp;
+      request_data->vps[i++]=cvp;
+      fill_protobuf_vp(cvp,pair,allocator);
    }
  }
  return request_data;
@@ -534,8 +537,15 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
  Org__Freeradius__RequestData* proto_request = 
          code_protobuf_request(method,request, &protobuf_c_default_allocator);
                                                          
+ rba.buffer.alloced = org__freeradius__request_data__get_packed_size(proto_request);
+ rba.buffer.data = rba.allocator->alloc(rba.allocator->allocator_data,rba.buffer.alloced);
+ rba.buffer.must_free_data=1;
  org__freeradius__request_data__pack_to_buffer(proto_request, 
                                               & rba.buffer.base);
+
+ wba.buffer.alloced = 1024;
+ wba.buffer.data = wba.allocator->alloc(wba.allocator->allocator_data,wba.buffer.alloced);
+ wba.buffer.must_free_data=1;
 
  curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
  curl_easy_setopt(handle, CURLOPT_INFILESIZE, rba.buffer.len);
@@ -568,7 +578,7 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
                                                    wba.buffer.data);
 
     retval = adopt_protobuf_reply(method, proto_reply, request); 
-    org__freeradius__request_data_reply_free_unpacked(
+    org__freeradius__request_data_reply__free_unpacked(
                                                 proto_reply,wba.allocator);
     wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
  } else {
@@ -581,9 +591,10 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
 
 static int rlm_protobuf_authenticate(void* instance, REQUEST* request)
 {
+ radlog(L_DBG, "rlm_protobuf_autheinticate");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->authenticate) {
-   return do_curl_call(tinstance, AUTHENTICATE, request);
+   return do_protobuf_curl_call(tinstance, AUTHENTICATE, request);
  } else {
    return RLM_MODULE_NOOP;
  }
@@ -594,7 +605,7 @@ static int rlm_protobuf_authorize(void* instance, REQUEST* request)
  radlog(L_DBG, "rlm_protobuf_authorize");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->authorize) {
-   return do_curl_call(tinstance, AUTHORIZE, request);
+   return do_protobuf_curl_call(tinstance, AUTHORIZE, request);
  } else {
    return RLM_MODULE_NOOP;
  }
@@ -605,7 +616,7 @@ static int rlm_protobuf_preaccount(void* instance, REQUEST* request)
  radlog(L_DBG, "rlm_protobuf_preaccount");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->preaccount) {
-   return do_curl_call(tinstance, PREACCOUNT, request);
+   return do_protobuf_curl_call(tinstance, PREACCOUNT, request);
  } else {
    return RLM_MODULE_NOOP;
  }
@@ -617,7 +628,7 @@ static int rlm_protobuf_account(void* instance, REQUEST* request)
  radlog(L_DBG, "rlm_protobuf_account");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->account) {
-   return do_curl_call(tinstance, ACCOUNT, request);
+   return do_protobuf_curl_call(tinstance, ACCOUNT, request);
  } else {
    return RLM_MODULE_NOOP;
  }
@@ -628,7 +639,7 @@ static int rlm_protobuf_checksim(void* instance, REQUEST* request)
  radlog(L_DBG, "rlm_protobuf_checksim");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->checksim) {
-   return do_curl_call(tinstance, CHECKSIM, request);
+   return do_protobuf_curl_call(tinstance, CHECKSIM, request);
  } else {
    return RLM_MODULE_NOOP;
  }
@@ -639,7 +650,7 @@ static int rlm_protobuf_postauth(void* instance, REQUEST* request)
  radlog(L_DBG, "rlm_protobuf_postauth");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->postauth) {
-   return do_curl_call(tinstance, POSTAUTH, request);
+   return do_protobuf_curl_call(tinstance, POSTAUTH, request);
  } else {
    return RLM_MODULE_NOOP;
  }
