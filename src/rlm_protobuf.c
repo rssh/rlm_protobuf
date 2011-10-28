@@ -427,7 +427,7 @@ static int adopt_protobuf_reply(int method,
                   : RLM_MODULE_OK ;
   int i=0;
   if  (rdr->error_message!=NULL) {
-     radlog(L_ERR,"error from protoserver: %s",rdr->error_message);
+     radlog(L_ERR,"rlm_protobuf: error from protoserver: %s",rdr->error_message);
      return RLM_MODULE_INVALID;
   }
   
@@ -604,11 +604,22 @@ static int rlm_protobuf_authorize(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_authorize");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
+ int retval = RLM_MODULE_NOOP;
+ int set_auth_type = FALSE ;
  if (tinstance->authorize) {
-   return do_protobuf_curl_call(tinstance, AUTHORIZE, request);
+   retval = do_protobuf_curl_call(tinstance, AUTHORIZE, request);
+   if (retval == RLM_MODULE_OK && tinstance->authenticate) {
+      set_auth_type = TRUE;
+   }
  } else {
-   return RLM_MODULE_NOOP;
+   set_auth_type = tinstance->authenticate;
  }
+ if (set_auth_type) {
+     pairadd(&request->config_items,
+             pairmake("Auth-Type", "PROTOBUF", T_OP_EQ));
+     retval = RLM_MODULE_OK;
+ }
+ return retval;
 }
 
 static int rlm_protobuf_preaccount(void* instance, REQUEST* request)
