@@ -28,7 +28,8 @@ public class RlmEndpointServlet extends HttpServlet
        }
        Map<Integer,Vsa.ValuePair> map = createMap(requestData.getVpsList());
        Vsa.RequestDataReply.Builder replyBuilder = Vsa.RequestDataReply.newBuilder();
-       if (requestData.getState() == Vsa.ProcessingState.AUTHORIZE) {
+       if (requestData.getState() == Vsa.ProcessingState.AUTHORIZE
+         || requestData.getState() == Vsa.ProcessingState.AUTHENTICATE ) {
           Vsa.ValuePair userNameVp = map.get(RadiusConstants.PW_USER_NAME);
           if (userNameVp!=null && userNameVp.getStringValue().equals("qqq")) {
               System.err.print("set allow to true");
