@@ -352,7 +352,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
                                      (cvp->has_vendor ? cvp->vendor : 0));
   VALUE_PAIR* vp;
   if (attr==NULL) {
-     radlog(L_ERR,"skipping unknown attribute %sd, %d",cvp->attribute,
+     radlog(L_ERR,"skipping unknown attribute %d, %d",cvp->attribute,
                                      (cvp->has_vendor ? cvp->vendor : 0));
      return NULL;
   }
@@ -619,7 +619,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
   return vp;
 }
 
-static int adopt_protobuf_reply(int method,
+static int adapt_protobuf_reply(int method,
                                 Org__Freeradius__RequestDataReply* rdr, 
                                 REQUEST* request
                                )
@@ -627,7 +627,7 @@ static int adopt_protobuf_reply(int method,
   int retval = rdr->has_allow ? 
                   (rdr->allow ? RLM_MODULE_OK : RLM_MODULE_REJECT) 
                   : RLM_MODULE_OK ;
-  int i=0;
+  unsigned int i=0;
   if  (rdr->error_message!=NULL) {
      radlog(L_ERR,"rlm_protobuf: error from protoserver: %s",rdr->error_message);
      return RLM_MODULE_INVALID;
@@ -700,14 +700,14 @@ static size_t rlm_protobuf_read_function( void *ptr,
  return bytesToTransfer;
 }
 
-size_t rlm_protobuf_write_function( char *ptr, 
+static size_t rlm_protobuf_write_function( char *ptr, 
                                     size_t size, 
                                     size_t nmemb, 
                                     void *userdata)
 {
  BufferWithAllocator* pba = (BufferWithAllocator*)userdata;
  size_t nBytes = size*nmemb;
- (pba->buffer.base.append)(&pba->buffer.base,nBytes,ptr);
+ (pba->buffer.base.append)(&pba->buffer.base,nBytes,(void*)ptr);
  return nBytes;
 }
 
@@ -718,11 +718,11 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
  CURLcode rc;
  int retval;
  struct BufferWithAllocator rba = {
-    /*PROTOBUF_C_BUFFER_SIMPLE_INIT({}),
-     { 
-     {*/ protobuf_c_buffer_simple_append /*}*/, 
+    /*PROTOBUF_C_BUFFER_SIMPLE_INIT({}),*/
+    { 
+     { protobuf_c_buffer_simple_append }, 
       0, 0, NULL , 0 
-    /*}*/,
+    },
     0,
     &protobuf_c_default_allocator
  };
@@ -767,7 +767,7 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
    retval=RLM_MODULE_NOOP;
  }
  if (instance->verbose) {
-   radlog(L_DBG,"received:\n%s",wba.buffer.len);
+   radlog(L_DBG,"received:%d bytes",(int)wba.buffer.len);
  }
  org__freeradius__request_data__free_unpacked(proto_request,rba.allocator);
  rba.allocator->free(rba.allocator->allocator_data,rba.buffer.data);
@@ -779,7 +779,7 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
                                                    wba.buffer.len,
                                                    wba.buffer.data);
 
-    retval = adopt_protobuf_reply(method, proto_reply, request); 
+    retval = adapt_protobuf_reply(method, proto_reply, request); 
     org__freeradius__request_data_reply__free_unpacked(
                                                 proto_reply,wba.allocator);
     wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
