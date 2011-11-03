@@ -59,8 +59,9 @@ enum ProcessingState {
 };
 
 message RequestData {
-    required ProcessingState state = 50;
-    repeated ValuePair vps = 51;
+    required int32 protocol_version = 50;
+    required ProcessingState state = 51;
+    repeated ValuePair vps = 52;
 };
 
 enum ValuePairOp {
@@ -70,14 +71,15 @@ enum ValuePairOp {
 }
 
 message ValuePairAction {
-    required ValuePairOp op = 52;
-    required ValuePair   vp = 53;
+    required ValuePairOp op = 53;
+    required ValuePair   vp = 54;
 }
 
 message RequestDataReply {
-    optional bool allow = 60;
-    optional string error_message = 61;
-    repeated ValuePairAction actions = 62;
+    required int32 protocol_version = 60;
+    optional bool allow = 61;
+    optional string error_message = 62;
+    repeated ValuePairAction actions = 63;
 };
 
 
