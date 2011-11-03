@@ -152,7 +152,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                break;
          case PW_TYPE_IPADDR:
                cvp->has_ipv4addr_value = 1;
-               cvp->ipv4addr_value = pair->vp_ipaddr;
+               cvp->ipv4addr_value = htonl(pair->vp_ipaddr);
                break;
          case PW_TYPE_DATE:
                cvp->has_date_value = 1;
@@ -389,7 +389,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
           break;
      case PW_TYPE_IPADDR:
           if (cvp->has_ipv4addr_value) {
-            vp->vp_ipaddr = cvp->ipv4addr_value; 
+            vp->vp_ipaddr = ntohl(cvp->ipv4addr_value); 
             vp->length=sizeof(vp->vp_ipaddr);
           } else if (cvp->string_value!=NULL) {
             int rc = inet_pton(AF_INET, cvp->string_value, &(vp->vp_ipaddr));

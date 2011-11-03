@@ -31,7 +31,7 @@ message ValuePair {
      optional int32 vendor = 2;
      optional string string_value = 3;
      optional int32  int_value = 4; 
-     optional fixed32  ipv4addr_value = 5;
+     optional fixed32  ipv4addr_value = 5; // address in network order.
      optional fixed32  date_value = 6;
      optional bytes  octets_value = 8;  // octets and abinary
      optional int64  ifid_value = 9;

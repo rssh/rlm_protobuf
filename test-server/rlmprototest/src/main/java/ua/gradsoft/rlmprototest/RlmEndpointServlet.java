@@ -1,6 +1,8 @@
 package ua.gradsoft.rlmprototest;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -43,7 +45,7 @@ public class RlmEndpointServlet extends HttpServlet
                Vsa.ValuePairAction.newBuilder().setOp(Vsa.ValuePairOp.ADD)
                                                .setVp(Vsa.ValuePair.newBuilder()
                                                        .setAttribute(RadiusConstants.PW_FRAMED_IP_ADDRESS)
-                                                       .setIpv4AddrValue(10)
+                                                       .setIpv4AddrValue(this.ipaddr(10,1,2,3))
                                                        .build()
                                                ).build()
           );
@@ -64,5 +66,22 @@ public class RlmEndpointServlet extends HttpServlet
       return retval;
     }
     
+    private int ipaddr(int x1, int x2, int x3, int x4)
+    {  
+      byte[] ba = new byte[4];
+      ba[0]=(byte)x1;
+      ba[1]=(byte)x2;
+      ba[2]=(byte)x3;
+      ba[3]=(byte)x4;
+      try {
+        InetAddress addr = java.net.Inet4Address.getByAddress(ba);
+        System.err.println("hostaddress is:" + addr.getHostAddress());
+        ba = addr.getAddress();  
+      } catch(UnknownHostException ex) {
+          System.err.println("Can't create address: "+ex.toString());
+          return 0;
+      }
+      return (((((x1<<8)+x2)<<8)+x3)<<8)+x4;  
+    }
     
 }
