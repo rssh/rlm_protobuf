@@ -43,7 +43,7 @@ public class RlmEndpointServlet extends HttpServlet
                Vsa.ValuePairAction.newBuilder().setOp(Vsa.ValuePairOp.ADD)
                                                .setVp(Vsa.ValuePair.newBuilder()
                                                        .setAttribute(RadiusConstants.PW_FRAMED_IP_ADDRESS)
-                                                       .setInt32Value(10)
+                                                       .setIpv4AddrValue(10)
                                                        .build()
                                                ).build()
           );
