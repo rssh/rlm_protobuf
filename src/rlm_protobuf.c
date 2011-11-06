@@ -778,16 +778,20 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
        org__freeradius__request_data_reply__unpack(wba.allocator,
                                                    wba.buffer.len,
                                                    wba.buffer.data);
-
-    retval = adapt_protobuf_reply(method, proto_reply, request); 
-    org__freeradius__request_data_reply__free_unpacked(
+    if (proto_reply==NULL) {
+       // i. e. unpacking of protobuff message was failed.
+       retval = RLM_MODULE_FAIL;
+    } else {
+       retval = adapt_protobuf_reply(method, proto_reply, request); 
+       org__freeradius__request_data_reply__free_unpacked(
                                                 proto_reply,wba.allocator);
-    wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
- } else {
-    if (wba.buffer.data!=NULL) {
-       wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
     }
+ } 
+
+ if (wba.buffer.data!=NULL) {
+     wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
  }
+
  return retval;
 }
 
