@@ -22,7 +22,10 @@
 #define ACCOUNT    4
 #define CHECKSIM    5
 #define POSTAUTH    6
+#define ALIVE      7
 
+
+#define PROTOCOL_VERSION 2
 
 typedef struct rlm_protobuf_t {
   char*  uri;
