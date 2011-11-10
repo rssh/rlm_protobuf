@@ -138,7 +138,8 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                              ProtobufCAllocator* allocator)
 {
   cvp->attribute = pair->attribute;
-  if (pair->vendor != 0) {
+  int vendor = (pair->attribute >> 16) & 0xFFFF;
+  if (vendor != 0) {
       cvp->has_vendor = 1;
       cvp->vendor = pair->vendor;
   }
@@ -277,6 +278,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                cvp->tlv_value.data = allocator->alloc(allocator->allocator_data,pair->length);
                memcpy(cvp->tlv_value.data,pair->vp_tlv,pair->length);
                break;
+#ifdef PW_TYPE_EXTENDED
          case PW_TYPE_EXTENDED:
                cvp->has_extended_value = 1;
                cvp->extended_value.len = pair->length;
@@ -289,10 +291,13 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                cvp->extended_flags_value.data = allocator->alloc(allocator->allocator_data,pair->length);
                memcpy(cvp->extended_flags_value.data,pair->vp_octets,pair->length);
                break;
+#endif
+#ifdef PW_TYPE_INTEGER64
          case PW_TYPE_INTEGER64:
                cvp->has_int64_value = 1;
                cvp->int64_value = pair->vp_integer64;
                break;
+#endif
          default:
                radlog(L_ERR,"unimplemented radius VSA type %d, skip",pair->type);
                break;
@@ -351,8 +356,12 @@ static void copy_byte_buffer(VALUE_PAIR* vp, ProtobufCBinaryData* ppbuff, int* e
 static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
                                     int* errflg)
 {
-  DICT_ATTR* attr = dict_attrbyvalue(cvp->attribute,
-                                     (cvp->has_vendor ? cvp->vendor : 0));
+  uint32_t attribute = cvp->attribute;
+  if (cvp->has_vendor) {
+     attribute = ((((uint32_t)cvp->vendor) << 16) & 0xFFFF0000)
+                  + (attribute & 0xFFFF);
+  }
+  DICT_ATTR* attr = dict_attrbyvalue(cvp->attribute);
   VALUE_PAIR* vp;
   if (attr==NULL) {
      radlog(L_ERR,"skipping unknown attribute %d, %d",cvp->attribute,
@@ -589,6 +598,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
              *errflg=1;
           }
           break;
+#ifdef PW_TYPE_EXTENDED
      case PW_TYPE_EXTENDED:
           if (cvp->has_extended_value) {
             copy_byte_buffer(vp, &(cvp->extended_value), errflg, attr->name);
@@ -605,6 +615,8 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
             *errflg=1;
           }
           break;
+#endif
+#ifdef PW_TYPE_EXTENDED
      case PW_TYPE_INTEGER64:
           if (cvp->has_int64_value) {
             vp->vp_integer64 = cvp->int64_value;
@@ -614,6 +626,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
             *errflg=1;
           }
           break;
+#endif
      default:
          radlog(L_ERR,"reply: uninmplemented VSA type for %s", attr->name);
          *errflg=1;
@@ -641,8 +654,11 @@ static int adapt_protobuf_reply(int method,
      Org__Freeradius__ValuePairAction* action = rdr->actions[i]; 
      Org__Freeradius__ValuePair* cvp = action->vp; 
      if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REMOVE) {
-         pairdelete(&(request->reply->vps),cvp->attribute,
-                                           cvp->has_vendor ? cvp->vendor : 0 );
+         uint32_t attribute = cvp->attribute;
+         if (cvp->has_vendor) {
+           attribute = ((cvp->vendor << 16) & 0xFFFF0000)+(attribute & 0xFFFF);
+         } 
+         pairdelete(&(request->reply->vps),attribute);
      } else {
        VALUE_PAIR* vp = create_radius_vp(cvp,&errflg);
        if (vp!=NULL) {
