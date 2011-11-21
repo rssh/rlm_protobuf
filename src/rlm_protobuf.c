@@ -141,7 +141,8 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
   int vendor = (pair->attribute >> 16) & 0xFFFF;
   if (vendor != 0) {
       cvp->has_vendor = 1;
-      cvp->vendor = pair->vendor;
+      cvp->vendor = vendor;
+      cvp->attribute &= 0x0000FFFF;
   }
   uint8_t* tmpptr=NULL;
   uint32_t tmpuint32=0;
@@ -361,7 +362,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
      attribute = ((((uint32_t)cvp->vendor) << 16) & 0xFFFF0000)
                   + (attribute & 0xFFFF);
   }
-  DICT_ATTR* attr = dict_attrbyvalue(cvp->attribute);
+  DICT_ATTR* attr = dict_attrbyvalue(attribute);
   VALUE_PAIR* vp;
   if (attr==NULL) {
      radlog(L_ERR,"skipping unknown attribute %d, %d",cvp->attribute,
