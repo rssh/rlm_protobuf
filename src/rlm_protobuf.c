@@ -656,14 +656,18 @@ static int adapt_protobuf_reply(int method,
                 )
               ) {
              if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
+                vp->operator = T_OP_SET;
                 pairreplace(&(request->config_items), vp);
              } else {
+                vp->operator = T_OP_ADD;
                 pairadd(&(request->config_items), vp);
              }
            } else {
              if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
+                vp->operator = T_OP_SET;
                 pairreplace(&(request->reply->vps),vp);
              } else {
+                vp->operator = T_OP_ADD;
                 pairadd(&(request->reply->vps),vp);
              }
            }
