@@ -365,7 +365,8 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
   DICT_ATTR* attr = dict_attrbyvalue(attribute);
   VALUE_PAIR* vp;
   if (attr==NULL) {
-     radlog(L_ERR,"skipping unknown attribute %d, %d",cvp->attribute,
+     radlog(L_ERR,"skipping unknown attribute %d (%d, %d)",attribute,
+                                     cvp->attribute,
                                      (cvp->has_vendor ? cvp->vendor : 0));
      return NULL;
   }
@@ -673,14 +674,18 @@ static int adapt_protobuf_reply(int method,
                 )
               ) {
              if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
+                vp->operator=T_OP_SET;
                 pairreplace(&(request->config_items), vp);
              } else {
+                vp->operator=T_OP_ADD;
                 pairadd(&(request->config_items), vp);
              }
            } else {
              if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
+                vp->operator=T_OP_SET;
                 pairreplace(&(request->reply->vps),vp);
              } else {
+                vp->operator=T_OP_ADD;
                 pairadd(&(request->reply->vps),vp);
              }
            }
@@ -817,7 +822,7 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
 
 static int rlm_protobuf_authenticate(void* instance, REQUEST* request)
 {
- radlog(L_DBG, "rlm_protobuf_autheinticate");
+ radlog(L_DBG, "rlm_protobuf_authenticate");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  if (tinstance->authenticate) {
    return do_protobuf_curl_call(tinstance, AUTHENTICATE, request);
@@ -839,6 +844,7 @@ static int rlm_protobuf_authorize(void* instance, REQUEST* request)
    }
  } else {
    set_auth_type = tinstance->authenticate;
+   retval = RLM_MODULE_OK;
  }
  if (set_auth_type) {
      pairadd(&request->config_items,
