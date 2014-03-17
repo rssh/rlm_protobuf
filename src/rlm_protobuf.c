@@ -25,7 +25,7 @@
 #define ALIVE      7
 
 
-#define PROTOCOL_VERSION 2
+#define PROTOCOL_VERSION 3
 
 typedef struct rlm_protobuf_t {
   char*  uri;
@@ -319,6 +319,7 @@ static Org__Freeradius__RequestData*
  Org__Freeradius__RequestData tmp = ORG__FREERADIUS__REQUEST_DATA__INIT ;
  *request_data = tmp;
  request_data->state = method;
+ request_data->protocol_version = PROTOCOL_VERSION;
  request_data->n_vps = 0;
  if (packet!=NULL) {
    int n_pairs = 0;
@@ -642,15 +643,34 @@ static int adapt_protobuf_reply(int method,
                                 REQUEST* request
                                )
 {
-  int retval = rdr->has_allow ? 
-                  (rdr->allow ? RLM_MODULE_OK : RLM_MODULE_REJECT) 
-                  : RLM_MODULE_OK ;
-  unsigned int i=0;
+  int retval=RLM_MODULE_INVALID;
+  switch(rdr->op) {
+       case ORG__FREERADIUS__PACKET_OP__ALLOW:
+                 retval = RLM_MODULE_OK;
+                 break;
+       case ORG__FREERADIUS__PACKET_OP__DENY:
+                 retval = RLM_MODULE_REJECT;
+                 break;
+       case ORG__FREERADIUS__PACKET_OP__IGNORE:
+                 retval = RLM_MODULE_HANDLED;
+                 break;
+       case ORG__FREERADIUS__PACKET_OP__ERROR:
+                 retval=RLM_MODULE_INVALID;
+                 if (rdr->error_message == NULL) {
+                   radlog(L_ERR,"rlm_protobuf: undetailed error from protoserver");
+                   return retval;   
+                 }
+                 break;
+       default:
+         radlog(L_ERR,"rlm_protobuf: unknow packet op in reply:%d",rdr->op);
+         break;
+  }
   if  (rdr->error_message!=NULL) {
      radlog(L_ERR,"rlm_protobuf: error from protoserver: %s",rdr->error_message);
      return RLM_MODULE_INVALID;
   }
   
+  unsigned int i=0;
   for(i=0; i < rdr->n_actions; ++i) {
      int errflg=0;
      Org__Freeradius__ValuePairAction* action = rdr->actions[i]; 
@@ -804,7 +824,7 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
                                                    wba.buffer.len,
                                                    wba.buffer.data);
     if (proto_reply==NULL) {
-       // i. e. unpacking of protobuff message was failed.
+       radlog(L_DBG,"unpacking of protobuf message failed");
        retval = RLM_MODULE_FAIL;
     } else {
        retval = adapt_protobuf_reply(method, proto_reply, request); 
