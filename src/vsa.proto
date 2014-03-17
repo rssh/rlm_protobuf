@@ -76,11 +76,17 @@ message ValuePairAction {
     required ValuePair   vp = 54;
 }
 
+enum PacketOp {
+    ALLOW = 1;
+    DENY = 2;
+    IGNORE = 3;
+    ERROR = 4;
+};
+
 message RequestDataReply {
     required int32 protocol_version = 60;
-    optional bool allow = 61;
+    required PacketOp op = 64;
     optional string error_message = 62;
     repeated ValuePairAction actions = 63;
 };
-
 
