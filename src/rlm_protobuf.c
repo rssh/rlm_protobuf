@@ -7,7 +7,8 @@
 
 #include <pthread.h>
 
-#include <freeradius-devel/radius.h>
+
+#include <freeradius-devel/build.h>
 #include <freeradius-devel/radiusd.h>
 #include <freeradius-devel/libradius.h>
 #include <freeradius-devel/modules.h>
@@ -42,8 +43,8 @@ typedef struct rlm_protobuf_t {
 } rlm_protobuf_t;
 
 static const CONF_PARSER module_config[] = {
-  { "url" , PW_TYPE_STRING_PTR, offsetof(rlm_protobuf_t,uri), NULL, NULL },
-  { "method" , PW_TYPE_STRING_PTR, offsetof(rlm_protobuf_t,method), NULL, NULL },
+  { "url" , PW_TYPE_STRING, offsetof(rlm_protobuf_t,uri), NULL, NULL },
+  { "method" , PW_TYPE_STRING, offsetof(rlm_protobuf_t,method), NULL, NULL },
   { "verbose", PW_TYPE_BOOLEAN, offsetof(rlm_protobuf_t,verbose), NULL, "no" },
   { "authenticate", PW_TYPE_BOOLEAN, offsetof(rlm_protobuf_t,authenticate), NULL, "yes" },
   { "authorize", PW_TYPE_BOOLEAN, offsetof(rlm_protobuf_t,authorize), NULL, "yes" },
@@ -97,19 +98,9 @@ static void rlm_curl_destroy_curlhandle(CURL* handle)
  }
 }
 
-static int rlm_protobuf_instantiate(CONF_SECTION* conf, void ** instance)
+static int rlm_protobuf_instantiate(CONF_SECTION* conf, void * instance)
 {
- rlm_protobuf_t* data;
- data = rad_malloc(sizeof(*data));
- if (!data) {
-    return -1;
- }
- memset(data,0,sizeof(*data));
-
- if (cf_section_parse(conf, data, module_config) < 0) {
-      free(data);
-      return -1;
- }
+ rlm_protobuf_t* data = instance;
 
  CURLcode rcode = curl_global_init(CURL_GLOBAL_ALL);
  if (rcode!=0) {
@@ -117,8 +108,6 @@ static int rlm_protobuf_instantiate(CONF_SECTION* conf, void ** instance)
      free(data);
      return -1;
  }
-
- *instance=data;
 
  pthread_once(&curl_once, rlm_curl_make_key);
  
@@ -128,7 +117,6 @@ static int rlm_protobuf_instantiate(CONF_SECTION* conf, void ** instance)
 static int rlm_protobuf_detach(void* instance)
 {
  curl_global_cleanup();
- free(instance);
  return 0;
 }
 
@@ -137,8 +125,9 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                              VALUE_PAIR* pair,
                              ProtobufCAllocator* allocator)
 {
-  cvp->attribute = pair->attribute;
-  int vendor = (pair->attribute >> 16) & 0xFFFF;
+  cvp->attribute = pair->da->attr;
+  //int vendor = (pair->da >> 16) & 0xFFFF;
+  int vendor = (pair->da->vendor);
   if (vendor != 0) {
       cvp->has_vendor = 1;
       cvp->vendor = vendor;
@@ -146,7 +135,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
   }
   uint8_t* tmpptr=NULL;
   uint32_t tmpuint32=0;
-  switch(pair->type) {
+  switch(pair->da->type) {
         case PW_TYPE_STRING:
                cvp->string_value = allocator->alloc(allocator->allocator_data,pair->length+1);
                strncpy(cvp->string_value,pair->vp_strvalue,pair->length+1);
@@ -155,7 +144,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                cvp->has_int_value = 1;
                cvp->int_value = pair->vp_integer;
                break;
-         case PW_TYPE_IPADDR:
+         case PW_TYPE_IPV4_ADDR:
                cvp->has_ipv4addr_value = 1;
                cvp->ipv4addr_value = htonl(pair->vp_ipaddr);
                break;
@@ -180,7 +169,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                                         pair->vp_ifid[6])<<8)+pair->vp_ifid[7])
                      );
                break;
-         case PW_TYPE_IPV6ADDR:
+         case PW_TYPE_IPV6_ADDR:
                cvp->ipv6addr_value = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__IpV6Addr));
                memset(cvp->ipv6addr_value,0,sizeof(Org__Freeradius__IpV6Addr));
                cvp->ipv6addr_value->base.descriptor = &org__freeradius__ip_v6_addr__descriptor;
@@ -201,7 +190,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                                         tmpptr[6])<<8)+tmpptr[7])
                      );
                break;
-         case PW_TYPE_IPV6PREFIX:
+         case PW_TYPE_IPV6_PREFIX:
                cvp->ipv6prefix_value = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__IpV6Prefix));
                memset(cvp->ipv6prefix_value,0,sizeof(Org__Freeradius__IpV6Prefix));
                cvp->ipv6prefix_value->base.descriptor = &org__freeradius__ip_v6_prefix__descriptor;
@@ -267,7 +256,7 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                cvp->has_signed_value = 1;
                cvp->signed_value = pair->vp_signed;
                break;
-         case PW_TYPE_COMBO_IP:
+         case PW_TYPE_COMBO_IP_ADDR:
                cvp->has_comboip_value = 1;
                cvp->comboip_value.len = pair->length;
                cvp->comboip_value.data = allocator->alloc(allocator->allocator_data,pair->length);
@@ -277,7 +266,8 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                cvp->has_tlv_value = 1;
                cvp->tlv_value.len = pair->length;
                cvp->tlv_value.data = allocator->alloc(allocator->allocator_data,pair->length);
-               memcpy(cvp->tlv_value.data,pair->vp_tlv,pair->length);
+               //memcpy(cvp->tlv_value.data,pair->vp_tlv,pair->length);
+               memcpy(cvp->tlv_value.data,pair->vp_octets,pair->length);
                break;
 #ifdef PW_TYPE_EXTENDED
          case PW_TYPE_EXTENDED:
@@ -342,7 +332,7 @@ static Org__Freeradius__RequestData*
  return request_data;
 }
 
-static void copy_byte_buffer(VALUE_PAIR* vp, ProtobufCBinaryData* ppbuff, int* errflg, char* attrname)
+static void copy_byte_buffer(VALUE_PAIR* vp, ProtobufCBinaryData* ppbuff, int* errflg, const char* attrname)
 {
  if(ppbuff->len > sizeof(vp->vp_octets)) {
     radlog(L_ERR,"rlm_protobuf: too long byte sequence for attribute %s, truncate", attrname);
@@ -350,20 +340,21 @@ static void copy_byte_buffer(VALUE_PAIR* vp, ProtobufCBinaryData* ppbuff, int* e
     vp->length = sizeof(vp->vp_octets);
     *errflg=2;
  } else {
-    memcpy(vp->vp_octets, ppbuff->data, ppbuff->len);
+    memcpy((void*)vp->vp_octets, ppbuff->data, ppbuff->len);
     vp->length = ppbuff->len;
  }
 }
 
-static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
+static VALUE_PAIR* create_radius_vp(REQUEST* request,
+                                    Org__Freeradius__ValuePair* cvp,
                                     int* errflg)
 {
   uint32_t attribute = cvp->attribute;
-  if (cvp->has_vendor) {
-     attribute = ((((uint32_t)cvp->vendor) << 16) & 0xFFFF0000)
-                  + (attribute & 0xFFFF);
-  }
-  DICT_ATTR* attr = dict_attrbyvalue(attribute);
+  //if (cvp->has_vendor) {
+  //   attribute = ((((uint32_t)cvp->vendor) << 16) & 0xFFFF0000)
+  //                + (attribute & 0xFFFF);
+  //}
+  const DICT_ATTR* attr = dict_attrbyvalue(cvp->attribute,cvp->vendor);
   VALUE_PAIR* vp;
   if (attr==NULL) {
      radlog(L_ERR,"skipping unknown attribute %d (%d, %d)",attribute,
@@ -371,23 +362,12 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
                                      (cvp->has_vendor ? cvp->vendor : 0));
      return NULL;
   }
-  vp = pairalloc(attr);
+  vp = pairalloc(request,attr);
   *errflg=0;
   switch (attr->type) {
      case PW_TYPE_STRING:
           if (cvp->string_value!=NULL) {
-            int maxLen = sizeof(vp->vp_strvalue);
-            int sLen = strlen(cvp->string_value);
-            if (sLen >= maxLen) {
-               radlog(L_ERR,"too long string for attribute %s, truncate", attr->name);
-               strncpy(vp->vp_strvalue,cvp->string_value,maxLen);
-               vp->vp_strvalue[maxLen-1]='\0';
-               vp->length=maxLen;
-               *errflg=2;
-            } else {
-               strncpy(vp->vp_strvalue,cvp->string_value,maxLen);
-               vp->length=sLen;
-            }
+               pairstrcpy(vp,cvp->string_value);
           } else {
                radlog(L_ERR,"attribute %s must be string, have %d", attr->name, attr->type);
                *errflg=1;
@@ -402,7 +382,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
              *errflg=1;
           }
           break;
-     case PW_TYPE_IPADDR:
+     case PW_TYPE_IPV4_ADDR:
           if (cvp->has_ipv4addr_value) {
             vp->vp_ipaddr = ntohl(cvp->ipv4addr_value); 
             vp->length=sizeof(vp->vp_ipaddr);
@@ -458,7 +438,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
              *errflg=1;
           }
           break;
-     case PW_TYPE_IPV6ADDR:
+     case PW_TYPE_IPV6_ADDR:
           if (cvp->ipv6addr_value!=NULL) {
             uint64_t v = cvp->ipv6addr_value->addr1;
             uint8_t* p = (uint8_t*)&(vp->vp_ipv6addr); 
@@ -499,7 +479,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
               *errflg=1;
           }
           break;
-     case PW_TYPE_IPV6PREFIX:
+     case PW_TYPE_IPV6_PREFIX:
           if (cvp->ipv6prefix_value!=NULL) {
              uint16_t descr = cvp->ipv6prefix_value->description;
              int len = descr & 0xFF;
@@ -582,7 +562,7 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
             *errflg=1;
           }
           break;
-     case PW_TYPE_COMBO_IP:
+     case PW_TYPE_COMBO_IP_ADDR:
           if (cvp->has_comboip_value) {
              memcpy(&vp->vp_octets,cvp->comboip_value.data,cvp->comboip_value.len);
              vp->length=cvp->comboip_value.len;
@@ -593,8 +573,9 @@ static VALUE_PAIR* create_radius_vp(Org__Freeradius__ValuePair* cvp,
           break;
      case PW_TYPE_TLV:
           if (cvp->has_tlv_value) {
-             vp->vp_tlv = malloc(cvp->tlv_value.len);
-             memcpy(vp->vp_tlv,cvp->tlv_value.data,cvp->tlv_value.len);
+             //vp->vp_tlv = malloc(cvp->tlv_value.len);
+             vp->data.ptr = malloc(cvp->tlv_value.len);
+             memcpy(vp->data.ptr,cvp->tlv_value.data,cvp->tlv_value.len);
              vp->length=cvp->tlv_value.len;
           } else {
              radlog(L_ERR,"rlm_protobuf: reply: invalid type for tlv attr in %s", attr->name);
@@ -676,36 +657,36 @@ static int adapt_protobuf_reply(int method,
      Org__Freeradius__ValuePairAction* action = rdr->actions[i]; 
      Org__Freeradius__ValuePair* cvp = action->vp; 
      if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REMOVE) {
-         uint32_t attribute = cvp->attribute;
-         if (cvp->has_vendor) {
-           attribute = ((cvp->vendor << 16) & 0xFFFF0000)+(attribute & 0xFFFF);
-         } 
-         pairdelete(&(request->reply->vps),attribute);
+         //uint32_t attribute = cvp->attribute;
+         //if (cvp->has_vendor) {
+         //  attribute = ((cvp->vendor << 16) & 0xFFFF0000)+(attribute & 0xFFFF);
+         //} 
+         pairdelete(&(request->reply->vps),cvp->attribute, cvp->vendor, TAG_ANY);
      } else {
-       VALUE_PAIR* vp = create_radius_vp(cvp,&errflg);
+       VALUE_PAIR* vp = create_radius_vp(request,cvp,&errflg);
        if (vp!=NULL) {
          if (errflg==0 || errflg==2) {
            /* some attributes must be inserted to request->config-items, 
             * not reply
             */
            if (method==AUTHORIZE
-              &&(  vp->attribute==PW_AUTH_TYPE
-                 ||vp->attribute==PW_CLEARTEXT_PASSWORD
+              &&(  vp->da->attr==PW_AUTH_TYPE
+                 ||vp->da->attr==PW_CLEARTEXT_PASSWORD
                 )
               ) {
              if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
-                vp->operator = T_OP_SET;
-                pairreplace(&(request->config_items), vp);
+                vp->op = T_OP_SET;
+                pairreplace(&(request->config), vp);
              } else {
-                vp->operator = T_OP_ADD;
-                pairadd(&(request->config_items), vp);
+                vp->op = T_OP_ADD;
+                pairadd(&(request->config), vp);
              }
            } else {
              if (action->op == ORG__FREERADIUS__VALUE_PAIR_OP__REPLACE) {
-                vp->operator = T_OP_SET;
+                vp->op = T_OP_SET;
                 pairreplace(&(request->reply->vps),vp);
              } else {
-                vp->operator = T_OP_ADD;
+                vp->op = T_OP_ADD;
                 pairadd(&(request->reply->vps),vp);
              }
            }
@@ -769,20 +750,20 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
       0, 0, NULL , 0 
     },
     0,
-    &protobuf_c_default_allocator
+    NULL  /* &protobuf_c_default_allocator*/
  };
  struct BufferWithAllocator wba = {
-    /*PROTOBUF_C_BUFFER_SIMPLE_INIT({}),
+    /*PROTOBUF_C_BUFFER_SIMPLE_INIT({}),*/
      {
-       {*/ protobuf_c_buffer_simple_append /*}*/, 
+       { protobuf_c_buffer_simple_append }, 
        0, 0, NULL , 0 
-    /*}*/,
-    0,
-    &protobuf_c_default_allocator
+     },
+    0, 
+    NULL  /* &protobuf_c_default_allocator*/
  };
  char errbuff[CURL_ERROR_SIZE];
  Org__Freeradius__RequestData* proto_request = 
-         code_protobuf_request(method,request, &protobuf_c_default_allocator);
+         code_protobuf_request(method,request, NULL /*&protobuf_c_default_allocator*/ );
                                                          
  rba.buffer.alloced = org__freeradius__request_data__get_packed_size(proto_request);
  rba.buffer.data = rba.allocator->alloc(rba.allocator->allocator_data,rba.buffer.alloced);
@@ -840,7 +821,7 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
  return retval;
 }
 
-static int rlm_protobuf_authenticate(void* instance, REQUEST* request)
+static rlm_rcode_t rlm_protobuf_authenticate(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_authenticate");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
@@ -851,30 +832,29 @@ static int rlm_protobuf_authenticate(void* instance, REQUEST* request)
  }
 }
 
-static int rlm_protobuf_authorize(void* instance, REQUEST* request)
+static rlm_rcode_t rlm_protobuf_authorize(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_authorize");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
  int retval = RLM_MODULE_NOOP;
- int set_auth_type = FALSE ;
+ int set_auth_type = 0 ;
  if (tinstance->authorize) {
    retval = do_protobuf_curl_call(tinstance, AUTHORIZE, request);
    if (retval == RLM_MODULE_OK && tinstance->authenticate) {
-      set_auth_type = TRUE;
+      set_auth_type = 1;
    }
  } else {
    set_auth_type = tinstance->authenticate;
    retval = RLM_MODULE_OK;
  }
  if (set_auth_type) {
-     pairadd(&request->config_items,
-             pairmake("Auth-Type", "PROTOBUF", T_OP_EQ));
+     pairmake(request, &request->config, "Auth-Type", "PROTOBUF", T_OP_EQ);
      retval = RLM_MODULE_OK;
  }
  return retval;
 }
 
-static int rlm_protobuf_preaccount(void* instance, REQUEST* request)
+static rlm_rcode_t rlm_protobuf_preaccount(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_preaccount");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
@@ -886,7 +866,7 @@ static int rlm_protobuf_preaccount(void* instance, REQUEST* request)
 }
 
 
-static int rlm_protobuf_account(void* instance, REQUEST* request)
+static rlm_rcode_t rlm_protobuf_account(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_account");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
@@ -897,7 +877,7 @@ static int rlm_protobuf_account(void* instance, REQUEST* request)
  }
 }
 
-static int rlm_protobuf_checksim(void* instance, REQUEST* request)
+static rlm_rcode_t rlm_protobuf_checksim(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_checksim");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
@@ -908,7 +888,7 @@ static int rlm_protobuf_checksim(void* instance, REQUEST* request)
  }
 }
 
-static int rlm_protobuf_postauth(void* instance, REQUEST* request)
+static rlm_rcode_t rlm_protobuf_postauth(void* instance, REQUEST* request)
 {
  radlog(L_DBG, "rlm_protobuf_postauth");
  rlm_protobuf_t* tinstance = (rlm_protobuf_t*)instance; 
@@ -920,21 +900,25 @@ static int rlm_protobuf_postauth(void* instance, REQUEST* request)
 }
 
 module_t rlm_protobuf = {
- RLM_MODULE_INIT,
- "protobuf",
- RLM_TYPE_THREAD_SAFE,
- rlm_protobuf_instantiate,
- rlm_protobuf_detach,
- {
-   rlm_protobuf_authenticate,
-   rlm_protobuf_authorize,
-   rlm_protobuf_preaccount,
-   rlm_protobuf_account,
-   rlm_protobuf_checksim,  /* checksim */
-   NULL,  /* pre-proxy */
-   NULL, /* post-proxy */
-   rlm_protobuf_postauth  /* post-auth */
- }
+        .magic          = RLM_MODULE_INIT,
+        .name           = "protobuf",
+        .type           = RLM_TYPE_THREAD_SAFE,
+        .inst_size      = sizeof(rlm_protobuf_t),
+        .config         = module_config,
+        .instantiate    = rlm_protobuf_instantiate,
+        .detach         = rlm_protobuf_detach,
+        .methods = {
+                [MOD_AUTHENTICATE]      = rlm_protobuf_authenticate,
+                [MOD_AUTHORIZE]         = rlm_protobuf_authorize,
+                [MOD_PREACCT]           = rlm_protobuf_preaccount,
+                [MOD_ACCOUNTING]        = rlm_protobuf_account,
+                [MOD_SESSION]          = rlm_protobuf_checksim,
+#ifdef WITH_PROXY
+                [MOD_PRE_PROXY]         = NULL,
+                [MOD_POST_PROXY]        = NULL,
+#endif
+                [MOD_POST_AUTH]         = rlm_protobuf_postauth
+        },
 };
 
 
