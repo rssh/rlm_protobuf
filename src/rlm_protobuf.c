@@ -137,7 +137,11 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
   uint32_t tmpuint32=0;
   switch(pair->da->type) {
         case PW_TYPE_STRING:
-               cvp->string_value = allocator->alloc(allocator->allocator_data,pair->length+1);
+               if (allocator!=NULL) {
+                 cvp->string_value = allocator->alloc(allocator->allocator_data,pair->length+1);
+               } else {
+                 cvp->string_value = malloc(pair->length+1);
+               }
                strncpy(cvp->string_value,pair->vp_strvalue,pair->length+1);
                break;
          case PW_TYPE_INTEGER:
@@ -156,7 +160,11 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
          case PW_TYPE_OCTETS:
                cvp->has_octets_value = 1;
                cvp->octets_value.len = pair->length;
-               cvp->octets_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               if (allocator!=NULL) {
+                 cvp->octets_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               } else {
+                 cvp->octets_value.data = malloc(pair->length);
+               }
                memcpy(cvp->octets_value.data, pair->vp_strvalue, pair->length);
                break;
          case PW_TYPE_IFID:
@@ -170,7 +178,11 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                      );
                break;
          case PW_TYPE_IPV6_ADDR:
-               cvp->ipv6addr_value = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__IpV6Addr));
+               if (allocator!=NULL) {
+                  cvp->ipv6addr_value = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__IpV6Addr));
+               } else {
+                  cvp->ipv6addr_value = malloc(sizeof(Org__Freeradius__IpV6Addr));
+               }
                memset(cvp->ipv6addr_value,0,sizeof(Org__Freeradius__IpV6Addr));
                cvp->ipv6addr_value->base.descriptor = &org__freeradius__ip_v6_addr__descriptor;
                tmpptr=(uint8_t*)(&pair->vp_ipv6addr);
@@ -191,7 +203,11 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
                      );
                break;
          case PW_TYPE_IPV6_PREFIX:
-               cvp->ipv6prefix_value = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__IpV6Prefix));
+               if (allocator!=NULL) {
+                  cvp->ipv6prefix_value = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__IpV6Prefix));
+               } else {
+                  cvp->ipv6prefix_value = malloc(sizeof(Org__Freeradius__IpV6Prefix));
+               }
                memset(cvp->ipv6prefix_value,0,sizeof(Org__Freeradius__IpV6Prefix));
                cvp->ipv6prefix_value->base.descriptor = &org__freeradius__ip_v6_prefix__descriptor;
                 /* see rfc4818 */
@@ -259,13 +275,21 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
          case PW_TYPE_COMBO_IP_ADDR:
                cvp->has_comboip_value = 1;
                cvp->comboip_value.len = pair->length;
-               cvp->comboip_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               if (allocator!=NULL) {
+                 cvp->comboip_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               } else {
+                 cvp->comboip_value.data = malloc(pair->length);
+               }
                memcpy(cvp->comboip_value.data,pair->vp_octets,pair->length);
                break;
          case PW_TYPE_TLV:
                cvp->has_tlv_value = 1;
                cvp->tlv_value.len = pair->length;
-               cvp->tlv_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               if (allocator!=NULL) {
+                 cvp->tlv_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               } else {
+                 cvp->tlv_value.data = malloc(pair->length);
+               }
                //memcpy(cvp->tlv_value.data,pair->vp_tlv,pair->length);
                memcpy(cvp->tlv_value.data,pair->vp_octets,pair->length);
                break;
@@ -273,13 +297,21 @@ static void fill_protobuf_vp(Org__Freeradius__ValuePair* cvp,
          case PW_TYPE_EXTENDED:
                cvp->has_extended_value = 1;
                cvp->extended_value.len = pair->length;
-               cvp->extended_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               if (allocator!=NULL) {
+                 cvp->extended_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               } else {
+                 cvp->extended_value.data = malloc(pair->length);
+               }
                memcpy(cvp->extended_value.data,pair->vp_octets,pair->length);
                break;
          case PW_TYPE_EXTENDED_FLAGS:
                cvp->has_extended_flags_value = 1;
                cvp->extended_flags_value.len = pair->length;
-               cvp->extended_flags_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               if (allocator!=NULL) {
+                 cvp->extended_flags_value.data = allocator->alloc(allocator->allocator_data,pair->length);
+               } else {
+                 cvp->extended_flags_value.data = malloc(pair->length);
+               }
                memcpy(cvp->extended_flags_value.data,pair->vp_octets,pair->length);
                break;
 #endif
@@ -303,9 +335,13 @@ static Org__Freeradius__RequestData*
 {
  RADIUS_PACKET* packet = request->packet;
  VALUE_PAIR* pair;
- Org__Freeradius__RequestData* request_data = 
-                   allocator->alloc(allocator->allocator_data,
+ Org__Freeradius__RequestData* request_data = NULL;
+ if (allocator!=NULL) {
+      request_data = allocator->alloc(allocator->allocator_data,
                                    sizeof(Org__Freeradius__RequestData));
+ } else {
+      request_data = malloc(sizeof(Org__Freeradius__RequestData));
+ }
  Org__Freeradius__RequestData tmp = ORG__FREERADIUS__REQUEST_DATA__INIT ;
  *request_data = tmp;
  request_data->state = method;
@@ -318,11 +354,20 @@ static Org__Freeradius__RequestData*
    }
    if (n_pairs > 0) {
       request_data->n_vps = n_pairs;
-      request_data->vps = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair*)*n_pairs);
+      if (allocator!=NULL) {
+        request_data->vps = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair*)*n_pairs);
+      } else {
+        request_data->vps = malloc(sizeof(Org__Freeradius__ValuePair*)*n_pairs);
+      }
    }
    int i=0;
    for(pair = packet->vps; pair != NULL; pair = pair->next) {
-      Org__Freeradius__ValuePair* cvp = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair));
+      Org__Freeradius__ValuePair* cvp;
+      if (allocator!=NULL) {
+        cvp = allocator->alloc(allocator->allocator_data,sizeof(Org__Freeradius__ValuePair));
+      } else {
+        cvp = malloc(sizeof(Org__Freeradius__ValuePair));
+      }
       Org__Freeradius__ValuePair tmp = ORG__FREERADIUS__VALUE_PAIR__INIT;
       *cvp = tmp;
       request_data->vps[i++]=cvp;
@@ -766,13 +811,21 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
          code_protobuf_request(method,request, NULL /*&protobuf_c_default_allocator*/ );
                                                          
  rba.buffer.alloced = org__freeradius__request_data__get_packed_size(proto_request);
- rba.buffer.data = rba.allocator->alloc(rba.allocator->allocator_data,rba.buffer.alloced);
+ if (rba.allocator!=NULL) {
+   rba.buffer.data = rba.allocator->alloc(rba.allocator->allocator_data,rba.buffer.alloced);
+ } else {
+   rba.buffer.data = malloc(rba.buffer.alloced);
+ }
  rba.buffer.must_free_data=1;
  org__freeradius__request_data__pack_to_buffer(proto_request, 
                                               & rba.buffer.base);
 
  wba.buffer.alloced = 1024;
- wba.buffer.data = wba.allocator->alloc(wba.allocator->allocator_data,wba.buffer.alloced);
+ if (wba.allocator!=NULL) {
+   wba.buffer.data = wba.allocator->alloc(wba.allocator->allocator_data,wba.buffer.alloced);
+ } else {
+   wba.buffer.data = malloc(wba.buffer.alloced);
+ }
  wba.buffer.must_free_data=1;
 
  curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
@@ -796,7 +849,11 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
    radlog(L_DBG,"received:%d bytes",(int)wba.buffer.len);
  }
  org__freeradius__request_data__free_unpacked(proto_request,rba.allocator);
- rba.allocator->free(rba.allocator->allocator_data,rba.buffer.data);
+ if (rba.allocator!=NULL) {
+   rba.allocator->free(rba.allocator->allocator_data,rba.buffer.data);
+ } else {
+   free(rba.buffer.data);
+ }
  if (rc==0) {
     // i. e. whe have no errors in curl
     //
@@ -815,7 +872,11 @@ static int do_protobuf_curl_call(rlm_protobuf_t* instance, int method, REQUEST* 
  } 
 
  if (wba.buffer.data!=NULL) {
+   if (wba.allocator!=NULL) {
      wba.allocator->free(wba.allocator->allocator_data, wba.buffer.data);
+   } else {
+     free(wba.buffer.data);
+   }
  }
 
  return retval;
